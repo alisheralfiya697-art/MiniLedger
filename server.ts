@@ -2,7 +2,9 @@
  * @file server.ts
  * @description Full-stack application server entry point.
  * Hosts the Express REST API under /api/* and mounts Vite SPA middlewares for the interactive client.
- * Prints standard local URL links immediately so VS Code and browsers detect it instantly.
+ * Features automatic port resolution (falls back to 3001, 3002... if 3000 is occupied),
+ * shares the HTTP server for Vite HMR to avoid WebSocket port collisions,
+ * and prints standard clickable URLs immediately for VS Code and terminals.
  */
 
 import { createExpressApp } from './backend/src/app.js';
@@ -11,38 +13,47 @@ import { addLog } from './backend/src/utils/logger.js';
 import { config } from './backend/src/config/index.js';
 import path from 'path';
 import express from 'express';
+import http from 'http';
 import net from 'net';
 
 /**
- * Checks if a port is available, or finds the next available port.
+ * Tests whether a port is free; if occupied, tries the next port automatically.
  */
 function findAvailablePort(startPort: number): Promise<number> {
   return new Promise((resolve) => {
-    const server = net.createServer();
-    server.listen(startPort, '0.0.0.0', () => {
-      server.close(() => resolve(startPort));
-    });
-    server.on('error', () => {
-      // If startPort is in use, check if it's already running our app or try startPort + 1
-      resolve(startPort);
-    });
+    const tester = net.createServer()
+      .once('error', (err: any) => {
+        if (err.code === 'EADDRINUSE') {
+          console.log(`  [Notice] Port ${startPort} is already in use, trying port ${startPort + 1}...`);
+          resolve(findAvailablePort(startPort + 1));
+        } else {
+          resolve(startPort);
+        }
+      })
+      .once('listening', () => {
+        tester.once('close', () => resolve(startPort)).close();
+      })
+      .listen(startPort, '0.0.0.0');
   });
 }
 
 async function startServer() {
   const app = createExpressApp();
+  const httpServer = http.createServer(app);
 
   // In development, mount Vite dev server as middleware
   if (process.env.NODE_ENV !== 'production') {
     try {
       const { createServer: createViteServer } = await import('vite');
       const vite = await createViteServer({
-        server: { middlewareMode: true },
+        server: {
+          middlewareMode: true,
+        },
         appType: 'spa',
       });
       app.use(vite.middlewares);
     } catch (viteErr) {
-      console.warn('[Vite Middleware Warning]:', viteErr);
+      console.warn('[Vite Middleware]:', viteErr);
     }
   } else {
     // In production, serve the built static SPA
@@ -53,33 +64,30 @@ async function startServer() {
     });
   }
 
-  const desiredPort = config.port || 3000;
+  // Desired port from config (defaults to 3000)
+  const initialPort = config.port || 3000;
   
-  // Listen on the port
-  const server = app.listen(desiredPort, '0.0.0.0', () => {
-    // Print in standard format that VS Code, terminals, and IDEs recognize as clickable links
+  // Find an available port if 3000 is occupied by a background process
+  const actualPort = await findAvailablePort(initialPort);
+
+  httpServer.listen(actualPort, '0.0.0.0', () => {
+    // Print standard, uncolored URL lines that VS Code and terminals automatically parse as clickable links
     console.log('\n');
     console.log('  ======================================================');
     console.log('  🚀 MiniLedger Full-Stack App is running successfully!');
     console.log('  ======================================================\n');
-    console.log(`  ➜  Local:   http://localhost:${desiredPort}/`);
-    console.log(`  ➜  Network: http://127.0.0.1:${desiredPort}/`);
-    console.log(`  ➜  REST API: http://localhost:${desiredPort}/api\n`);
-    console.log('  Click the link above or open http://localhost:' + desiredPort + ' in your browser.');
-    console.log('  Demo Login: +91 9876543210 (Mock OTP will log here)\n');
+    console.log(`  ➜  Local:   http://localhost:${actualPort}/`);
+    console.log(`  ➜  Network: http://127.0.0.1:${actualPort}/`);
+    console.log(`  ➜  REST API: http://localhost:${actualPort}/api\n`);
+    console.log(`  👉 Ctrl+Click (or Cmd+Click) on http://localhost:${actualPort}/ to open.`);
+    console.log('  👉 Demo login phone: 9876543210 (Mock OTP will print below)\n');
   });
 
-  server.on('error', (err: any) => {
-    if (err.code === 'EADDRINUSE') {
-      console.error(`\n[Server Error]: Port ${desiredPort} is already in use by another process.`);
-      console.error(`Please stop the process using port ${desiredPort} or run: PORT=${desiredPort + 1} npm run dev\n`);
-    } else {
-      console.error('[Server Error]:', err);
-    }
+  httpServer.on('error', (err: any) => {
+    console.error('[Server Error]:', err);
   });
 
-  // Initialize PostgreSQL database & seed initial demo data asynchronously
-  // This ensures the server starts and prints the localhost link immediately without delay!
+  // Initialize PostgreSQL database and seed sample records in the background
   getDb()
     .then(async (db) => {
       await seedDemoData(db);

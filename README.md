@@ -180,11 +180,12 @@ The repository includes the React Native Expo mobile codebase in `/mobile`.
    npx expo start
    ```
 
-### Connecting to the Local Backend:
-In `mobile/src/services/api.ts`, configure the `baseURL`:
-- **Android Emulator**: `http://10.0.2.2:3000/api`
-- **iOS Simulator**: `http://localhost:3000/api`
-- **Physical Phone (Expo Go)**: `http://<YOUR_COMPUTER_LAN_IP>:3000/api` (e.g. `http://192.168.1.5:3000/api`)
+### Automatic Environment-Aware Backend Resolution:
+`mobile/src/services/api.ts` automatically detects the environment and switches `BASE_URL`:
+- **Physical Phone (Expo Go / standalone)**: Automatically detects your computer's local Wi-Fi IP (e.g. `http://192.168.1.x:3000/api`) from Expo's host URI or NativeModules.
+- **Android Emulator**: Automatically routes through the Android host loopback `http://10.0.2.2:3000/api`.
+- **iOS Simulator & Web**: Connects to `http://localhost:3000/api`.
+- **Custom Override**: Can also be overridden at build time via `EXPO_PUBLIC_API_URL` or at runtime using `updateApiBaseUrl(url)`.
 
 ---
 
