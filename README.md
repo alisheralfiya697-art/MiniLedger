@@ -138,19 +138,11 @@ The migration SQL script is located at:
 - Node.js version `>= 18.0.0` (Node 20 or 22 recommended)
 - npm version `>= 9.0.0`
 
-### Environment Variables
-Copy `.env.example` to `.env`:
-
-```bash
-cp .env.example .env
-```
-
-Default variables:
-```ini
-PORT=3000
-NODE_ENV=development
-JWT_SECRET=miniledger-super-secure-dev-secret-key-2026
-```
+### Configuration Defaults
+All configurations have built-in defaults in `backend/src/config/index.ts`:
+- `PORT`: defaults to `3000`
+- `NODE_ENV`: defaults to `development`
+- `JWT_SECRET`: secure development key pre-configured for local testing
 
 ---
 

@@ -5,8 +5,8 @@
  */
 
 export const config = {
-  // Server Port (defaults to 3000 as per AI Studio environment constraints)
-  port: parseInt(process.env.PORT || '3000', 10),
+  // Server Port (defaults to 3000 as per environment constraints)
+  port: parseInt(process.env.PORT && process.env.PORT !== '8080' ? process.env.PORT : '3000', 10),
   
   // JWT Configuration
   jwt: {
