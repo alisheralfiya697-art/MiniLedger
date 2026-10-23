@@ -1,0 +1,6 @@
+{
+  "name": "MiniLedger - Friend Loan & Repayment Tracker",
+  "description": "Full-stack personal debt tracker to monitor loans lent to friends, track repayments, overdue alerts, and financial summaries with mock OTP authentication.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
